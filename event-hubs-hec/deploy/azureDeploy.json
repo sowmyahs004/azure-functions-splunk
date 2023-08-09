@@ -242,7 +242,8 @@
                 "name": "[parameters('storageAccountType')]"
             },
             "properties": {
-                "minimumTlsVersion": "[parameters('storageAccountTLS')]"
+                "minimumTlsVersion": "[parameters('storageAccountTLS')]",
+                "allowBlobPublicAccess": false
             }
         },
         {
