@@ -1,5 +1,5 @@
 /*
-Copyright 2022 Splunk Inc. 
+Copyright 2022 Splunk Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,9 +16,24 @@ limitations under the License.
 const splunk = require('../helpers/splunk');
 const { BlobServiceClient } = require('@azure/storage-blob');
 
-module.exports = async function (context, nsgBlobTrigger) {
-    const blobContainer = process.env["BLOB_PATH"];
-    const blobName = context.bindingData.blobName;
+module.exports = async function (context, eventGridEvent) {
+    const blobUrl = eventGridEvent.data.url;
+    context.log(`Processing blob: ${blobUrl}`);
+
+    // Parse container and blob name from URL
+    // URL format: https://<account>.blob.core.windows.net/<container>/<blobPath>
+    const url = new URL(blobUrl);
+    const pathParts = url.pathname.split('/').filter(p => p);
+    const blobContainer = pathParts[0];
+    const blobName = pathParts.slice(1).join('/');
+
+    // Only process blobs from the configured BLOB_PATH container
+    const expectedContainer = process.env["BLOB_PATH"];
+    if (blobContainer !== expectedContainer) {
+        context.log(`Skipping blob from container ${blobContainer}, expected ${expectedContainer}`);
+        context.done();
+        return;
+    }
 
     const blobServiceClient = BlobServiceClient.fromConnectionString(process.env["BLOB_CONNECTION_STRING"]);
     const containerClient = blobServiceClient.getContainerClient(blobContainer);
