@@ -14,15 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 const splunk = require('../helpers/splunk');
-module.exports = async function (context) {
+const { BlobServiceClient } = require('@azure/storage-blob');
+
+module.exports = async function (context, nsgBlobTrigger) {
+    const blobContainer = process.env["BLOB_PATH"];
+    const blobName = context.bindingData.blobName;
+
+    const blobServiceClient = BlobServiceClient.fromConnectionString(process.env["BLOB_CONNECTION_STRING"]);
+    const containerClient = blobServiceClient.getContainerClient(blobContainer);
+    const blobClient = containerClient.getBlobClient(blobName);
+
+    const downloadResponse = await blobClient.download(0);
+    const chunks = [];
+    for await (const chunk of downloadResponse.readableStreamBody) {
+        chunks.push(chunk);
+    }
+    const blobContent = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
 
     await splunk
-            .sendToHEC(context.bindings.nsgBlobInput)
+            .sendToHEC(blobContent)
             .catch(err => {
                 context.log.error(`Error posting to Splunk HTTP Event Collector: ${err}`);
 
                 // If the event was not successfully sent to Splunk, drop the event in a storage blob container undeliverable-nsg-events
-                context.bindings.outputBlob = context.bindings.nsgBlobInput;
-            })
+                context.bindings.outputBlob = JSON.stringify(blobContent);
+            });
     context.done();
 };

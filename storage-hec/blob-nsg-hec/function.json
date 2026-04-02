@@ -6,20 +6,12 @@
       "direction": "in",
       "connection": "BLOB_CONNECTION_STRING",
       "dataType": "string",
-      "path": "%BLOB_PATH%/{name}"
-    },
-    {
-      "type": "blob",
-      "name": "nsgBlobInput",
-      "direction": "in",
-      "connection": "BLOB_CONNECTION_STRING",
-      "dataType": "string",
-      "path": "%BLOB_PATH%/{name}"
+      "path": "%BLOB_PATH%/{blobName}"
     },
     {
       "name": "outputBlob",
       "type": "blob",
-      "path": "undeliverable-nsg-events/{rand-guid}-{name}",
+      "path": "undeliverable-nsg-events/{rand-guid}-{blobName}",
       "connection": "BLOB_CONNECTION_STRING",
       "direction": "out"
     }

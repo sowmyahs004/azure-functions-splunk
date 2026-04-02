@@ -34,7 +34,7 @@ const getTimeStamp = function(message) {
 const getHECPayload = async function(blobContent) {
 
     let denormalize = (process.env["DENORMALIZE_EVENTS"].toLowerCase() === 'true')
-    let sourcetype = process.env["NSG_SOURCETYPE"]
+    let sourcetype = process.env["DIAGNOSTIC_LOG_SOURCETYPE"] || process.env["NSG_SOURCETYPE"]
     let payload = ''
     
     // https://learn.microsoft.com/azure/network-watcher/network-watcher-nsg-flow-logging-overview
