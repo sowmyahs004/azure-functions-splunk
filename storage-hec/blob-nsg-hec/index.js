@@ -15,19 +15,22 @@ limitations under the License.
 */
 const splunk = require('../helpers/splunk');
 const { BlobServiceClient } = require('@azure/storage-blob');
+const { chain } = require('stream-chain');
+const { parser } = require('stream-json');
+const Pick = require('stream-json/filters/Pick');
+const { streamArray } = require('stream-json/streamers/StreamArray');
+
+const BATCH_SIZE = 200;
 
 module.exports = async function (context, eventGridEvent) {
     const blobUrl = eventGridEvent.data.url;
     context.log(`Processing blob: ${blobUrl}`);
 
-    // Parse container and blob name from URL
-    // URL format: https://<account>.blob.core.windows.net/<container>/<blobPath>
     const url = new URL(blobUrl);
     const pathParts = url.pathname.split('/').filter(p => p);
     const blobContainer = pathParts[0];
     const blobName = pathParts.slice(1).join('/');
 
-    // Only process blobs from the configured BLOB_PATH container
     const expectedContainer = process.env["BLOB_PATH"];
     if (blobContainer !== expectedContainer) {
         context.log(`Skipping blob from container ${blobContainer}, expected ${expectedContainer}`);
@@ -40,19 +43,44 @@ module.exports = async function (context, eventGridEvent) {
     const blobClient = containerClient.getBlobClient(blobName);
 
     const downloadResponse = await blobClient.download(0);
-    const chunks = [];
-    for await (const chunk of downloadResponse.readableStreamBody) {
-        chunks.push(chunk);
-    }
-    const blobContent = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
 
-    await splunk
-            .sendToHEC(blobContent)
-            .catch(err => {
-                context.log.error(`Error posting to Splunk HTTP Event Collector: ${err}`);
+    // Stream the blob and process records in batches to avoid OOM on large blobs (up to 1GB)
+    await new Promise((resolve, reject) => {
+        let batch = [];
 
-                // If the event was not successfully sent to Splunk, drop the event in a storage blob container undeliverable-nsg-events
-                context.bindings.outputBlob = JSON.stringify(blobContent);
-            });
+        const pipeline = chain([
+            downloadResponse.readableStreamBody,
+            parser(),
+            Pick.withParser({ filter: 'records' }),
+            streamArray()
+        ]);
+
+        pipeline.on('data', async ({ value: record }) => {
+            batch.push(record);
+
+            if (batch.length >= BATCH_SIZE) {
+                pipeline.pause();
+                const currentBatch = batch.splice(0, BATCH_SIZE);
+                await splunk.sendToHEC({ records: currentBatch })
+                    .catch(err => {
+                        context.log.error(`Error posting batch to Splunk: ${err}`);
+                    });
+                pipeline.resume();
+            }
+        });
+
+        pipeline.on('end', async () => {
+            if (batch.length > 0) {
+                await splunk.sendToHEC({ records: batch })
+                    .catch(err => {
+                        context.log.error(`Error posting final batch to Splunk: ${err}`);
+                    });
+            }
+            resolve();
+        });
+
+        pipeline.on('error', reject);
+    });
+
     context.done();
 };
