@@ -95,13 +95,17 @@ const sendToHEC = async function(blobContent) {
         "Authorization": `Splunk ${process.env["SPLUNK_HEC_TOKEN"]}`
     }
 
-    await getHECPayload(blobContent)
-        .then(payload => {
-            return axios.post(process.env["SPLUNK_HEC_URL"], payload, {headers: headers});
-        })
-        .catch(err => {
-            throw err;
-    });
+    const records = blobContent.records || [];
+    const BATCH_SIZE = 200;
+
+    for (let i = 0; i < records.length; i += BATCH_SIZE) {
+        const batch = { records: records.slice(i, i + BATCH_SIZE) };
+        const payload = await getHECPayload(batch);
+        if (payload) {
+            await axios.post(process.env["SPLUNK_HEC_URL"], payload, { headers: headers })
+                .catch(err => { throw err; });
+        }
+    }
 }
 
 exports.sendToHEC = sendToHEC;
