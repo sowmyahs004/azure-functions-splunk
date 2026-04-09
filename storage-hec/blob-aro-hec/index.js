@@ -111,11 +111,13 @@ async function processBlobRange(context, containerClient, blobName, startOffset,
 }
 
 async function sendBatchToHEC(lines, sourcetype, hecUrl, hecToken) {
+    const index = process.env['SPLUNK_INDEX'];
     let payload = '';
     for (const line of lines) {
         try {
             const parsed = JSON.parse(line);
             const hecEvent = { event: parsed, sourcetype };
+            if (index) hecEvent.index = index;
             if (parsed.time) {
                 hecEvent.time = Math.floor(new Date(parsed.time).getTime() / 1000);
             }
