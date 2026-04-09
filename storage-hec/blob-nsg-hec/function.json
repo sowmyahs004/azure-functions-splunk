@@ -1,14 +1,25 @@
 {
   "bindings": [
     {
-      "type": "eventGridTrigger",
-      "name": "eventGridEvent",
-      "direction": "in"
+      "type": "blobTrigger",
+      "name": "nsgBlobTrigger",
+      "direction": "in",
+      "connection": "BLOB_CONNECTION_STRING",
+      "dataType": "string",
+      "path": "%BLOB_PATH%/{name}"
+    },
+    {
+      "type": "blob",
+      "name": "nsgBlobInput",
+      "direction": "in",
+      "connection": "BLOB_CONNECTION_STRING",
+      "dataType": "string",
+      "path": "%BLOB_PATH%/{name}"
     },
     {
       "name": "outputBlob",
       "type": "blob",
-      "path": "undeliverable-nsg-events/{rand-guid}",
+      "path": "undeliverable-nsg-events/{rand-guid}-{name}",
       "connection": "BLOB_CONNECTION_STRING",
       "direction": "out"
     }

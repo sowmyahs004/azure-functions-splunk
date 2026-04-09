@@ -7,9 +7,7 @@
     "test": "echo \"No tests yet...\""
   },
   "dependencies": {
-    "axios": ">=0.21.2",
-    "@azure/storage-blob": "^12.17.0",
-    "stream-json": "^1.8.0"
+    "axios": ">=0.21.2"
   },
   "devDependencies": {}
 }
