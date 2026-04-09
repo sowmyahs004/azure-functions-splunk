@@ -34,7 +34,7 @@ const getTimeStamp = function(message) {
 const getHECPayload = async function(blobContent) {
 
     let denormalize = (process.env["DENORMALIZE_EVENTS"].toLowerCase() === 'true')
-    let sourcetype = process.env["DIAGNOSTIC_LOG_SOURCETYPE"] || process.env["NSG_SOURCETYPE"]
+    let sourcetype = process.env["NSG_SOURCETYPE"]
     let payload = ''
     
     // https://learn.microsoft.com/azure/network-watcher/network-watcher-nsg-flow-logging-overview
@@ -95,17 +95,13 @@ const sendToHEC = async function(blobContent) {
         "Authorization": `Splunk ${process.env["SPLUNK_HEC_TOKEN"]}`
     }
 
-    const records = blobContent.records || [];
-    const BATCH_SIZE = 200;
-
-    for (let i = 0; i < records.length; i += BATCH_SIZE) {
-        const batch = { records: records.slice(i, i + BATCH_SIZE) };
-        const payload = await getHECPayload(batch);
-        if (payload) {
-            await axios.post(process.env["SPLUNK_HEC_URL"], payload, { headers: headers })
-                .catch(err => { throw err; });
-        }
-    }
+    await getHECPayload(blobContent)
+        .then(payload => {
+            return axios.post(process.env["SPLUNK_HEC_URL"], payload, {headers: headers});
+        })
+        .catch(err => {
+            throw err;
+    });
 }
 
 exports.sendToHEC = sendToHEC;
