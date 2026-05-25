@@ -56,6 +56,8 @@ const getTimeStamp = function(message) {
 
 const getHECPayload = async function(message, sourcetype) {
 
+    const splunkIndex = process.env["SPLUNK_INDEX"];
+
     try {
         jsonMessage = JSON.parse(message);
     } catch (err) {
@@ -64,6 +66,7 @@ const getHECPayload = async function(message, sourcetype) {
             "sourcetype": sourcetype,
             "event": message
         }
+        if(splunkIndex) { payload["index"] = splunkIndex; }
         return payload;
     }
 
@@ -72,19 +75,20 @@ const getHECPayload = async function(message, sourcetype) {
         let payload = ''
 
         jsonMessage.records.forEach(function(record) {
-            
+
             let recordEvent = {
                 "sourcetype": sourcetype,
                 "event": JSON.stringify(record)
             }
-            
+
             if((record.hasOwnProperty('resourceId')) && (record.hasOwnProperty('category'))) {
                 // Get the sourcetype
                 recordEvent["sourcetype"] = getSourceType(sourcetype, record.resourceId, record.category);
             }
-            
+
             let eventTimeStamp = getTimeStamp(record);
             if(eventTimeStamp) { recordEvent["time"] = eventTimeStamp; }
+            if(splunkIndex) { recordEvent["index"] = splunkIndex; }
             payload += JSON.stringify(recordEvent);
         });
         return payload
@@ -97,6 +101,7 @@ const getHECPayload = async function(message, sourcetype) {
     }
     let eventTimeStamp = getTimeStamp(jsonMessage);
     if(eventTimeStamp) { payload["time"] = eventTimeStamp; }
+    if(splunkIndex) { payload["index"] = splunkIndex; }
     return payload
 }
 
